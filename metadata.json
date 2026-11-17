@@ -1,0 +1,6 @@
+{
+  "name": "RestroAdmin",
+  "description": "Comprehensive SaaS Super Admin Panel for managing restaurant tenants, subscription plans, payments, GST revenue, employees, support tickets, app configuration, notifications, analytics, and security.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

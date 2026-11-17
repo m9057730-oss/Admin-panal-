@@ -1,0 +1,305 @@
+{
+  "entities": {
+    "RestaurantTenant": {
+      "title": "RestaurantTenant",
+      "description": "Registered restaurant tenant managed in the SaaS Super Admin Panel",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated admin owner UID" },
+        "userCode": { "type": "string", "description": "Human-readable restaurant user ID" },
+        "restaurantName": { "type": "string", "description": "Name of the restaurant" },
+        "ownerName": { "type": "string", "description": "Owner full name" },
+        "mobileNumber": { "type": "string", "description": "Owner mobile number" },
+        "email": { "type": "string", "description": "Owner email address" },
+        "address": { "type": "string", "description": "Restaurant physical address" },
+        "plan": { "type": "string", "enum": ["FREE", "PREMIUM", "ENTERPRISE"] },
+        "billingCycle": { "type": "string", "enum": ["MONTHLY", "YEARLY"] },
+        "subscriptionStatus": { "type": "string", "enum": ["ACTIVE", "TRIAL", "EXPIRED", "CANCELLED"] },
+        "accountStatus": { "type": "string", "enum": ["ACTIVE", "BLOCKED"] },
+        "trialDaysRemaining": { "type": "integer" },
+        "downloadsCount": { "type": "integer" },
+        "activeUsersToday": { "type": "integer" },
+        "monthlyActiveUsers": { "type": "integer" },
+        "onlineNow": { "type": "boolean" },
+        "demoAccount": { "type": "boolean" },
+        "expiryEpochMillis": { "type": "integer" },
+        "lastPasswordResetNote": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "userId", "userCode", "restaurantName", "ownerName", "mobileNumber", "email",
+        "address", "plan", "billingCycle", "subscriptionStatus", "accountStatus",
+        "trialDaysRemaining", "downloadsCount", "activeUsersToday", "monthlyActiveUsers",
+        "onlineNow", "demoAccount", "expiryEpochMillis", "lastPasswordResetNote",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "PaymentTransaction": {
+      "title": "PaymentTransaction",
+      "description": "Subscription payment, invoice, GST, and refund record",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "transactionId": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "restaurantId": { "type": "string" },
+        "restaurantName": { "type": "string" },
+        "plan": { "type": "string", "enum": ["FREE", "PREMIUM", "ENTERPRISE"] },
+        "billingCycle": { "type": "string", "enum": ["MONTHLY", "YEARLY"] },
+        "baseAmount": { "type": "number" },
+        "gstAmount": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["SUCCESS", "FAILED", "PENDING", "REFUNDED"] },
+        "paymentMethod": { "type": "string" },
+        "refundReason": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "transactionId", "invoiceNumber", "restaurantId", "restaurantName",
+        "plan", "billingCycle", "baseAmount", "gstAmount", "totalAmount",
+        "status", "paymentMethod", "refundReason", "createdAt", "updatedAt"
+      ]
+    },
+    "AppConfigRecord": {
+      "title": "AppConfigRecord",
+      "description": "Remote SaaS application version, feature flags, URLs, and announcements",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "appName": { "type": "string" },
+        "currentVersion": { "type": "string" },
+        "latestVersion": { "type": "string" },
+        "minRequiredVersion": { "type": "string" },
+        "forceUpdate": { "type": "boolean" },
+        "maintenanceMode": { "type": "boolean" },
+        "maintenanceMessage": { "type": "string" },
+        "featureOnlineOrdering": { "type": "boolean" },
+        "featureQrMenu": { "type": "boolean" },
+        "featureKitchenDisplay": { "type": "boolean" },
+        "featureGstBilling": { "type": "boolean" },
+        "featureLoyalty": { "type": "boolean" },
+        "featureMultiBranch": { "type": "boolean" },
+        "privacyPolicyUrl": { "type": "string" },
+        "termsUrl": { "type": "string" },
+        "androidDownloadUrl": { "type": "string" },
+        "websiteUrl": { "type": "string" },
+        "announcementTitle": { "type": "string" },
+        "announcementBody": { "type": "string" },
+        "announcementActive": { "type": "boolean" },
+        "totalDownloads": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "appName", "currentVersion", "latestVersion", "minRequiredVersion",
+        "forceUpdate", "maintenanceMode", "maintenanceMessage",
+        "featureOnlineOrdering", "featureQrMenu", "featureKitchenDisplay",
+        "featureGstBilling", "featureLoyalty", "featureMultiBranch",
+        "privacyPolicyUrl", "termsUrl", "androidDownloadUrl", "websiteUrl",
+        "announcementTitle", "announcementBody", "announcementActive",
+        "totalDownloads", "createdAt", "updatedAt"
+      ]
+    },
+    "AdminNotification": {
+      "title": "AdminNotification",
+      "description": "Broadcast or targeted notification campaign sent to restaurant tenants",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "audience": { "type": "string", "enum": ["ALL", "SELECTED", "FREE", "PREMIUM", "ENTERPRISE"] },
+        "category": { "type": "string", "enum": ["PAYMENT_REMINDER", "EXPIRY_REMINDER", "NEW_FEATURE", "APP_UPDATE", "PROMOTIONAL"] },
+        "targetRestaurantNames": { "type": "string" },
+        "deliveryStatus": { "type": "string", "enum": ["DELIVERED", "SCHEDULED", "PARTIAL"] },
+        "scheduledForLabel": { "type": "string" },
+        "sentCount": { "type": "integer" },
+        "readCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "title", "message", "audience", "category",
+        "targetRestaurantNames", "deliveryStatus", "scheduledForLabel",
+        "sentCount", "readCount", "createdAt", "updatedAt"
+      ]
+    },
+    "StaffEmployee": {
+      "title": "StaffEmployee",
+      "description": "Admin panel employee with role-based access permissions",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "mobile": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["SUPER_ADMIN", "BILLING_MANAGER", "SUPPORT_AGENT", "OPS_ANALYST"] },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE", "SUSPENDED"] },
+        "canManageRestaurants": { "type": "boolean" },
+        "canManageBilling": { "type": "boolean" },
+        "canManageAppConfig": { "type": "boolean" },
+        "canManageSupport": { "type": "boolean" },
+        "canViewAnalytics": { "type": "boolean" },
+        "canManageSecurity": { "type": "boolean" },
+        "lastLoginLabel": { "type": "string" },
+        "lastActionNote": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "name", "mobile", "email", "role", "status",
+        "canManageRestaurants", "canManageBilling", "canManageAppConfig",
+        "canManageSupport", "canViewAnalytics", "canManageSecurity",
+        "lastLoginLabel", "lastActionNote", "createdAt", "updatedAt"
+      ]
+    },
+    "SupportTicket": {
+      "title": "SupportTicket",
+      "description": "Customer complaint, bug report, feedback, or feature request",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "restaurantName": { "type": "string" },
+        "category": { "type": "string", "enum": ["COMPLAINT", "TICKET", "FEEDBACK", "BUG_REPORT", "FEATURE_REQUEST"] },
+        "subject": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+        "status": { "type": "string", "enum": ["PENDING", "IN_PROGRESS", "RESOLVED"] },
+        "adminReply": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "restaurantName", "category", "subject", "description",
+        "priority", "status", "adminReply", "createdAt", "updatedAt"
+      ]
+    },
+    "MarketingCampaign": {
+      "title": "MarketingCampaign",
+      "description": "Promotional discount and growth campaign",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "promoCode": { "type": "string" },
+        "discountPercent": { "type": "integer" },
+        "targetPlan": { "type": "string", "enum": ["ALL", "FREE", "PREMIUM", "ENTERPRISE"] },
+        "redemptions": { "type": "integer" },
+        "budgetInr": { "type": "number" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "name", "promoCode", "discountPercent", "targetPlan",
+        "redemptions", "budgetInr", "active", "createdAt", "updatedAt"
+      ]
+    },
+    "AdminAuditLog": {
+      "title": "AdminAuditLog",
+      "description": "Security, login device, suspicious alert, and admin activity log",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "actorEmail": { "type": "string" },
+        "action": { "type": "string" },
+        "module": { "type": "string" },
+        "details": { "type": "string" },
+        "deviceModel": { "type": "string" },
+        "severity": { "type": "string", "enum": ["INFO", "WARNING", "CRITICAL"] },
+        "suspicious": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "actorEmail", "action", "module", "details",
+        "deviceModel", "severity", "suspicious", "createdAt"
+      ]
+    },
+    "CrashReport": {
+      "title": "CrashReport",
+      "description": "Client app crash report telemetry",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "appVersion": { "type": "string" },
+        "deviceName": { "type": "string" },
+        "errorTitle": { "type": "string" },
+        "stackSummary": { "type": "string" },
+        "affectedUsers": { "type": "integer" },
+        "resolved": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "appVersion", "deviceName", "errorTitle", "stackSummary",
+        "affectedUsers", "resolved", "createdAt", "updatedAt"
+      ]
+    },
+    "SecuritySettings": {
+      "title": "SecuritySettings",
+      "description": "Super admin 2FA, session, backup, and access protection settings",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "twoFactorEnabled": { "type": "boolean" },
+        "unauthorizedProtection": { "type": "boolean" },
+        "sessionTimeoutMinutes": { "type": "integer" },
+        "securityPinHash": { "type": "string" },
+        "lastBackupLabel": { "type": "string" },
+        "lastRestoreLabel": { "type": "string" },
+        "failedAttemptsCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "twoFactorEnabled", "unauthorizedProtection",
+        "sessionTimeoutMinutes", "securityPinHash", "lastBackupLabel",
+        "lastRestoreLabel", "failedAttemptsCount", "createdAt", "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/restaurants/{restaurantId}": {
+      "schema": { "$ref": "#/entities/RestaurantTenant" },
+      "description": "Restaurant tenant accounts and subscriptions owned by the admin"
+    },
+    "/users/{userId}/payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/PaymentTransaction" },
+      "description": "Payments, invoices, GST, and refunds"
+    },
+    "/users/{userId}/appConfig/{configId}": {
+      "schema": { "$ref": "#/entities/AppConfigRecord" },
+      "description": "Application configuration, versions, feature flags, and announcements"
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/AdminNotification" },
+      "description": "Notification campaigns and delivery statuses"
+    },
+    "/users/{userId}/employees/{employeeId}": {
+      "schema": { "$ref": "#/entities/StaffEmployee" },
+      "description": "Admin panel employees and access permissions"
+    },
+    "/users/{userId}/tickets/{ticketId}": {
+      "schema": { "$ref": "#/entities/SupportTicket" },
+      "description": "Support tickets, bugs, feedback, and feature requests"
+    },
+    "/users/{userId}/campaigns/{campaignId}": {
+      "schema": { "$ref": "#/entities/MarketingCampaign" },
+      "description": "Marketing campaigns and promo codes"
+    },
+    "/users/{userId}/auditLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AdminAuditLog" },
+      "description": "Admin activity, login device history, and suspicious alerts"
+    },
+    "/users/{userId}/crashes/{crashId}": {
+      "schema": { "$ref": "#/entities/CrashReport" },
+      "description": "App crash telemetry reports"
+    },
+    "/users/{userId}/securityConfig/{configId}": {
+      "schema": { "$ref": "#/entities/SecuritySettings" },
+      "description": "Super admin security, 2FA, session, and backup settings"
+    }
+  }
+}

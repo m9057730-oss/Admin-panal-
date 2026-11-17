@@ -1,0 +1,503 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL HARDENED HELPERS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    // --- VALIDATION HELPERS ---
+    function isValidRestaurantTenant(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.userCode is string && data.userCode.size() >= 3 && data.userCode.size() <= 30 &&
+             data.restaurantName is string && data.restaurantName.size() >= 2 && data.restaurantName.size() <= 80 &&
+             data.ownerName is string && data.ownerName.size() >= 2 && data.ownerName.size() <= 80 &&
+             data.mobileNumber is string && data.mobileNumber.size() >= 6 && data.mobileNumber.size() <= 20 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 120 &&
+             data.address is string && data.address.size() <= 250 &&
+             data.plan in ['FREE', 'PREMIUM', 'ENTERPRISE'] &&
+             data.billingCycle in ['MONTHLY', 'YEARLY'] &&
+             data.subscriptionStatus in ['ACTIVE', 'TRIAL', 'EXPIRED', 'CANCELLED'] &&
+             data.accountStatus in ['ACTIVE', 'BLOCKED'] &&
+             data.trialDaysRemaining is int && data.trialDaysRemaining >= 0 && data.trialDaysRemaining <= 365 &&
+             data.downloadsCount is int && data.downloadsCount >= 0 &&
+             data.activeUsersToday is int && data.activeUsersToday >= 0 &&
+             data.monthlyActiveUsers is int && data.monthlyActiveUsers >= 0 &&
+             data.onlineNow is bool &&
+             data.demoAccount is bool &&
+             data.expiryEpochMillis is int && data.expiryEpochMillis >= 0 &&
+             data.lastPasswordResetNote is string && data.lastPasswordResetNote.size() <= 200;
+    }
+
+    function isValidPaymentTransaction(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.transactionId is string && data.transactionId.size() >= 4 && data.transactionId.size() <= 64 &&
+             data.invoiceNumber is string && data.invoiceNumber.size() >= 4 && data.invoiceNumber.size() <= 40 &&
+             data.restaurantId is string && data.restaurantId.size() >= 1 && data.restaurantId.size() <= 128 &&
+             data.restaurantName is string && data.restaurantName.size() >= 2 && data.restaurantName.size() <= 80 &&
+             data.plan in ['FREE', 'PREMIUM', 'ENTERPRISE'] &&
+             data.billingCycle in ['MONTHLY', 'YEARLY'] &&
+             data.baseAmount is number && data.baseAmount >= 0 &&
+             data.gstAmount is number && data.gstAmount >= 0 &&
+             data.totalAmount is number && data.totalAmount >= 0 &&
+             data.status in ['SUCCESS', 'FAILED', 'PENDING', 'REFUNDED'] &&
+             data.paymentMethod is string && data.paymentMethod.size() >= 2 && data.paymentMethod.size() <= 40 &&
+             data.refundReason is string && data.refundReason.size() <= 200;
+    }
+
+    function isValidAppConfig(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.appName is string && data.appName.size() >= 2 && data.appName.size() <= 60 &&
+             data.currentVersion is string && data.currentVersion.size() >= 1 && data.currentVersion.size() <= 20 &&
+             data.latestVersion is string && data.latestVersion.size() >= 1 && data.latestVersion.size() <= 20 &&
+             data.minRequiredVersion is string && data.minRequiredVersion.size() >= 1 && data.minRequiredVersion.size() <= 20 &&
+             data.forceUpdate is bool &&
+             data.maintenanceMode is bool &&
+             data.maintenanceMessage is string && data.maintenanceMessage.size() <= 250 &&
+             data.featureOnlineOrdering is bool &&
+             data.featureQrMenu is bool &&
+             data.featureKitchenDisplay is bool &&
+             data.featureGstBilling is bool &&
+             data.featureLoyalty is bool &&
+             data.featureMultiBranch is bool &&
+             data.privacyPolicyUrl is string && data.privacyPolicyUrl.size() <= 300 &&
+             data.termsUrl is string && data.termsUrl.size() <= 300 &&
+             data.androidDownloadUrl is string && data.androidDownloadUrl.size() <= 300 &&
+             data.websiteUrl is string && data.websiteUrl.size() <= 300 &&
+             data.announcementTitle is string && data.announcementTitle.size() <= 100 &&
+             data.announcementBody is string && data.announcementBody.size() <= 400 &&
+             data.announcementActive is bool &&
+             data.totalDownloads is int && data.totalDownloads >= 0;
+    }
+
+    function isValidAdminNotification(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() >= 2 && data.title.size() <= 100 &&
+             data.message is string && data.message.size() >= 2 && data.message.size() <= 500 &&
+             data.audience in ['ALL', 'SELECTED', 'FREE', 'PREMIUM', 'ENTERPRISE'] &&
+             data.category in ['PAYMENT_REMINDER', 'EXPIRY_REMINDER', 'NEW_FEATURE', 'APP_UPDATE', 'PROMOTIONAL'] &&
+             data.targetRestaurantNames is string && data.targetRestaurantNames.size() <= 300 &&
+             data.deliveryStatus in ['DELIVERED', 'SCHEDULED', 'PARTIAL'] &&
+             data.scheduledForLabel is string && data.scheduledForLabel.size() <= 60 &&
+             data.sentCount is int && data.sentCount >= 0 &&
+             data.readCount is int && data.readCount >= 0;
+    }
+
+    function isValidStaffEmployee(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 80 &&
+             data.mobile is string && data.mobile.size() >= 6 && data.mobile.size() <= 20 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 120 &&
+             data.role in ['SUPER_ADMIN', 'BILLING_MANAGER', 'SUPPORT_AGENT', 'OPS_ANALYST'] &&
+             data.status in ['ACTIVE', 'INACTIVE', 'SUSPENDED'] &&
+             data.canManageRestaurants is bool &&
+             data.canManageBilling is bool &&
+             data.canManageAppConfig is bool &&
+             data.canManageSupport is bool &&
+             data.canViewAnalytics is bool &&
+             data.canManageSecurity is bool &&
+             data.lastLoginLabel is string && data.lastLoginLabel.size() <= 60 &&
+             data.lastActionNote is string && data.lastActionNote.size() <= 200;
+    }
+
+    function isValidSupportTicket(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.restaurantName is string && data.restaurantName.size() >= 2 && data.restaurantName.size() <= 80 &&
+             data.category in ['COMPLAINT', 'TICKET', 'FEEDBACK', 'BUG_REPORT', 'FEATURE_REQUEST'] &&
+             data.subject is string && data.subject.size() >= 2 && data.subject.size() <= 120 &&
+             data.description is string && data.description.size() >= 2 && data.description.size() <= 600 &&
+             data.priority in ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] &&
+             data.status in ['PENDING', 'IN_PROGRESS', 'RESOLVED'] &&
+             data.adminReply is string && data.adminReply.size() <= 600;
+    }
+
+    function isValidMarketingCampaign(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 80 &&
+             data.promoCode is string && data.promoCode.size() >= 2 && data.promoCode.size() <= 30 &&
+             data.discountPercent is int && data.discountPercent >= 0 && data.discountPercent <= 100 &&
+             data.targetPlan in ['ALL', 'FREE', 'PREMIUM', 'ENTERPRISE'] &&
+             data.redemptions is int && data.redemptions >= 0 &&
+             data.budgetInr is number && data.budgetInr >= 0 &&
+             data.active is bool;
+    }
+
+    function isValidAdminAuditLog(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.actorEmail is string && data.actorEmail.size() <= 120 &&
+             data.action is string && data.action.size() >= 2 && data.action.size() <= 100 &&
+             data.module is string && data.module.size() >= 2 && data.module.size() <= 50 &&
+             data.details is string && data.details.size() <= 400 &&
+             data.deviceModel is string && data.deviceModel.size() <= 100 &&
+             data.severity in ['INFO', 'WARNING', 'CRITICAL'] &&
+             data.suspicious is bool;
+    }
+
+    function isValidCrashReport(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.appVersion is string && data.appVersion.size() >= 1 && data.appVersion.size() <= 20 &&
+             data.deviceName is string && data.deviceName.size() >= 2 && data.deviceName.size() <= 80 &&
+             data.errorTitle is string && data.errorTitle.size() >= 2 && data.errorTitle.size() <= 120 &&
+             data.stackSummary is string && data.stackSummary.size() <= 400 &&
+             data.affectedUsers is int && data.affectedUsers >= 0 &&
+             data.resolved is bool;
+    }
+
+    function isValidSecuritySettings(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.twoFactorEnabled is bool &&
+             data.unauthorizedProtection is bool &&
+             data.sessionTimeoutMinutes is int && data.sessionTimeoutMinutes >= 5 && data.sessionTimeoutMinutes <= 1440 &&
+             data.securityPinHash is string && data.securityPinHash.size() <= 64 &&
+             data.lastBackupLabel is string && data.lastBackupLabel.size() <= 80 &&
+             data.lastRestoreLabel is string && data.lastRestoreLabel.size() <= 80 &&
+             data.failedAttemptsCount is int && data.failedAttemptsCount >= 0;
+    }
+
+    // --- USER-SCOPED WORKSPACE SUBCOLLECTIONS ---
+    match /users/{userId} {
+
+      match /restaurants/{restaurantId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(restaurantId);
+        allow create: if isOwner(userId) && isValidId(restaurantId) &&
+                         isValidRestaurantTenant(incoming()) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'userCode', 'restaurantName', 'ownerName', 'mobileNumber',
+                           'email', 'address', 'plan', 'billingCycle', 'subscriptionStatus',
+                           'accountStatus', 'trialDaysRemaining', 'downloadsCount', 'activeUsersToday',
+                           'monthlyActiveUsers', 'onlineNow', 'demoAccount', 'expiryEpochMillis',
+                           'lastPasswordResetNote', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'userCode', 'restaurantName', 'ownerName', 'mobileNumber',
+                           'email', 'address', 'plan', 'billingCycle', 'subscriptionStatus',
+                           'accountStatus', 'trialDaysRemaining', 'downloadsCount', 'activeUsersToday',
+                           'monthlyActiveUsers', 'onlineNow', 'demoAccount', 'expiryEpochMillis',
+                           'lastPasswordResetNote', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt);
+        allow update: if isOwner(userId) && isValidId(restaurantId) &&
+                         isValidRestaurantTenant(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'restaurantName', 'ownerName', 'mobileNumber', 'email', 'address',
+                           'plan', 'billingCycle', 'subscriptionStatus', 'accountStatus',
+                           'trialDaysRemaining', 'downloadsCount', 'activeUsersToday',
+                           'monthlyActiveUsers', 'onlineNow', 'demoAccount', 'expiryEpochMillis',
+                           'lastPasswordResetNote', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(restaurantId);
+      }
+
+      match /payments/{paymentId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(paymentId);
+        allow create: if isOwner(userId) && isValidId(paymentId) &&
+                         isValidPaymentTransaction(incoming()) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'transactionId', 'invoiceNumber', 'restaurantId',
+                           'restaurantName', 'plan', 'billingCycle', 'baseAmount',
+                           'gstAmount', 'totalAmount', 'status', 'paymentMethod',
+                           'refundReason', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'transactionId', 'invoiceNumber', 'restaurantId',
+                           'restaurantName', 'plan', 'billingCycle', 'baseAmount',
+                           'gstAmount', 'totalAmount', 'status', 'paymentMethod',
+                           'refundReason', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt);
+        allow update: if isOwner(userId) && isValidId(paymentId) &&
+                         isValidPaymentTransaction(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'status', 'refundReason', 'paymentMethod', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(paymentId);
+      }
+
+      match /appConfig/{configId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(configId);
+        allow create: if isOwner(userId) && isValidId(configId) &&
+                         isValidAppConfig(incoming()) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'appName', 'currentVersion', 'latestVersion',
+                           'minRequiredVersion', 'forceUpdate', 'maintenanceMode',
+                           'maintenanceMessage', 'featureOnlineOrdering', 'featureQrMenu',
+                           'featureKitchenDisplay', 'featureGstBilling', 'featureLoyalty',
+                           'featureMultiBranch', 'privacyPolicyUrl', 'termsUrl',
+                           'androidDownloadUrl', 'websiteUrl', 'announcementTitle',
+                           'announcementBody', 'announcementActive', 'totalDownloads',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'appName', 'currentVersion', 'latestVersion',
+                           'minRequiredVersion', 'forceUpdate', 'maintenanceMode',
+                           'maintenanceMessage', 'featureOnlineOrdering', 'featureQrMenu',
+                           'featureKitchenDisplay', 'featureGstBilling', 'featureLoyalty',
+                           'featureMultiBranch', 'privacyPolicyUrl', 'termsUrl',
+                           'androidDownloadUrl', 'websiteUrl', 'announcementTitle',
+                           'announcementBody', 'announcementActive', 'totalDownloads',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt);
+        allow update: if isOwner(userId) && isValidId(configId) &&
+                         isValidAppConfig(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'appName', 'currentVersion', 'latestVersion', 'minRequiredVersion',
+                           'forceUpdate', 'maintenanceMode', 'maintenanceMessage',
+                           'featureOnlineOrdering', 'featureQrMenu', 'featureKitchenDisplay',
+                           'featureGstBilling', 'featureLoyalty', 'featureMultiBranch',
+                           'privacyPolicyUrl', 'termsUrl', 'androidDownloadUrl', 'websiteUrl',
+                           'announcementTitle', 'announcementBody', 'announcementActive',
+                           'totalDownloads', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(configId);
+      }
+
+      match /notifications/{notificationId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(notificationId);
+        allow create: if isOwner(userId) && isValidId(notificationId) &&
+                         isValidAdminNotification(incoming()) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'title', 'message', 'audience', 'category',
+                           'targetRestaurantNames', 'deliveryStatus', 'scheduledForLabel',
+                           'sentCount', 'readCount', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'title', 'message', 'audience', 'category',
+                           'targetRestaurantNames', 'deliveryStatus', 'scheduledForLabel',
+                           'sentCount', 'readCount', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt);
+        allow update: if isOwner(userId) && isValidId(notificationId) &&
+                         isValidAdminNotification(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'deliveryStatus', 'sentCount', 'readCount', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(notificationId);
+      }
+
+      match /employees/{employeeId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(employeeId);
+        allow create: if isOwner(userId) && isValidId(employeeId) &&
+                         isValidStaffEmployee(incoming()) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'name', 'mobile', 'email', 'role', 'status',
+                           'canManageRestaurants', 'canManageBilling', 'canManageAppConfig',
+                           'canManageSupport', 'canViewAnalytics', 'canManageSecurity',
+                           'lastLoginLabel', 'lastActionNote', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'name', 'mobile', 'email', 'role', 'status',
+                           'canManageRestaurants', 'canManageBilling', 'canManageAppConfig',
+                           'canManageSupport', 'canViewAnalytics', 'canManageSecurity',
+                           'lastLoginLabel', 'lastActionNote', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt);
+        allow update: if isOwner(userId) && isValidId(employeeId) &&
+                         isValidStaffEmployee(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'mobile', 'email', 'role', 'status',
+                           'canManageRestaurants', 'canManageBilling', 'canManageAppConfig',
+                           'canManageSupport', 'canViewAnalytics', 'canManageSecurity',
+                           'lastLoginLabel', 'lastActionNote', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(employeeId);
+      }
+
+      match /tickets/{ticketId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(ticketId);
+        allow create: if isOwner(userId) && isValidId(ticketId) &&
+                         isValidSupportTicket(incoming()) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'restaurantName', 'category', 'subject',
+                           'description', 'priority', 'status', 'adminReply',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'restaurantName', 'category', 'subject',
+                           'description', 'priority', 'status', 'adminReply',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt);
+        allow update: if isOwner(userId) && isValidId(ticketId) &&
+                         isValidSupportTicket(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'priority', 'status', 'adminReply', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(ticketId);
+      }
+
+      match /campaigns/{campaignId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(campaignId);
+        allow create: if isOwner(userId) && isValidId(campaignId) &&
+                         isValidMarketingCampaign(incoming()) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'name', 'promoCode', 'discountPercent',
+                           'targetPlan', 'redemptions', 'budgetInr', 'active',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'name', 'promoCode', 'discountPercent',
+                           'targetPlan', 'redemptions', 'budgetInr', 'active',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt);
+        allow update: if isOwner(userId) && isValidId(campaignId) &&
+                         isValidMarketingCampaign(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'promoCode', 'discountPercent', 'targetPlan',
+                           'redemptions', 'budgetInr', 'active', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(campaignId);
+      }
+
+      match /auditLogs/{logId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(logId);
+        allow create: if isOwner(userId) && isValidId(logId) &&
+                         isValidAdminAuditLog(incoming()) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'actorEmail', 'action', 'module', 'details',
+                           'deviceModel', 'severity', 'suspicious', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'actorEmail', 'action', 'module', 'details',
+                           'deviceModel', 'severity', 'suspicious', 'createdAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt);
+        allow update: if isOwner(userId) && isValidId(logId) &&
+                         isValidAdminAuditLog(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['suspicious']);
+        allow delete: if isOwner(userId) && isValidId(logId);
+      }
+
+      match /crashes/{crashId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(crashId);
+        allow create: if isOwner(userId) && isValidId(crashId) &&
+                         isValidCrashReport(incoming()) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'appVersion', 'deviceName', 'errorTitle',
+                           'stackSummary', 'affectedUsers', 'resolved',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'appVersion', 'deviceName', 'errorTitle',
+                           'stackSummary', 'affectedUsers', 'resolved',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt);
+        allow update: if isOwner(userId) && isValidId(crashId) &&
+                         isValidCrashReport(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['resolved', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(crashId);
+      }
+
+      match /securityConfig/{configId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(configId);
+        allow create: if isOwner(userId) && isValidId(configId) &&
+                         isValidSecuritySettings(incoming()) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'twoFactorEnabled', 'unauthorizedProtection',
+                           'sessionTimeoutMinutes', 'securityPinHash', 'lastBackupLabel',
+                           'lastRestoreLabel', 'failedAttemptsCount', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'twoFactorEnabled', 'unauthorizedProtection',
+                           'sessionTimeoutMinutes', 'securityPinHash', 'lastBackupLabel',
+                           'lastRestoreLabel', 'failedAttemptsCount', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt);
+        allow update: if isOwner(userId) && isValidId(configId) &&
+                         isValidSecuritySettings(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'twoFactorEnabled', 'unauthorizedProtection', 'sessionTimeoutMinutes',
+                           'securityPinHash', 'lastBackupLabel', 'lastRestoreLabel',
+                           'failedAttemptsCount', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(configId);
+      }
+    }
+  }
+}
